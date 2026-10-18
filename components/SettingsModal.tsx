@@ -10,6 +10,7 @@ import {
   ExternalLink, CheckCircle2, BarChart2, Radio, Database,
   Globe, Laptop
 } from 'lucide-react';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { AppSettings, GeminiVoiceName, AppVoiceName, ApiKeyEntry } from '../types';
 import { generateTts, validateGeminiApiKey } from '../services/geminiService';
 import { playGeminiAudio, stopCurrentAudio, speakBrowserText } from '../services/audioPlayer';
@@ -1012,7 +1013,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 <h4 className="font-semibold text-xs text-[#A8ABB4] uppercase tracking-wider mb-3">
                   Session Summary Dashboard
                 </h4>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-3 mb-4">
                   <div className="bg-[#1E1E1E] p-3.5 rounded-lg border border-white/5">
                     <span className="text-2xl font-bold text-white">{totalDocuments}</span>
                     <p className="text-xs text-[#A8ABB4] mt-0.5">Documents Processed</p>
@@ -1021,6 +1022,35 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     <span className="text-2xl font-bold text-[#79B8FF]">{estimatedTokens.toLocaleString()}</span>
                     <p className="text-xs text-[#A8ABB4] mt-0.5">Est. Tokens Used</p>
                   </div>
+                </div>
+                
+                {/* Token Usage Gauge */}
+                <div className="h-40 w-full flex items-center justify-center">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={[
+                          { name: 'Used', value: estimatedTokens },
+                          { name: 'Remaining', value: Math.max(0, 100000 - estimatedTokens) }
+                        ]}
+                        cx="50%"
+                        cy="100%"
+                        startAngle={180}
+                        endAngle={0}
+                        innerRadius={60}
+                        outerRadius={80}
+                        paddingAngle={5}
+                        dataKey="value"
+                      >
+                        <Cell fill="#79B8FF" />
+                        <Cell fill="#333" />
+                      </Pie>
+                      <Tooltip contentStyle={{ backgroundColor: '#1E1E1E', border: 'none', fontSize: '12px' }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="text-center text-xs text-[#A8ABB4] -mt-6">
+                  {Math.min(100, Math.round((estimatedTokens / 100000) * 100))}% of context limit
                 </div>
               </div>
 

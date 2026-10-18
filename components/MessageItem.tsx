@@ -7,7 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { marked } from 'marked';
 import hljs from 'highlight.js';
 import { ChatMessage, MessageSender, AppVoiceName, DocumentCitation } from '../types';
-import { Volume2, Square, Loader2, FileText, ExternalLink, X, Check, Copy, Pin, PinOff } from 'lucide-react';
+import { Volume2, Square, Loader2, FileText, ExternalLink, X, Check, Copy, Pin, PinOff, Play } from 'lucide-react';
 import AudioVisualizer from './AudioVisualizer';
 import { generateTts } from '../services/geminiService';
 import { playGeminiAudio, stopCurrentAudio, speakBrowserText } from '../services/audioPlayer';
@@ -186,6 +186,27 @@ const MessageItem: React.FC<MessageItemProps> = ({
   const [isCopied, setIsCopied] = useState(false);
   const [selectedCitation, setSelectedCitation] = useState<NormalizedCitation | null>(null);
 
+  useEffect(() => {
+    const runCode = (code: string, outputEl: Element) => {
+        try {
+            // Using a Function constructor is slightly safer than eval, but still unsafe for production
+            const result = new Function(code)();
+            outputEl.textContent = String(result);
+        } catch (e) {
+            outputEl.textContent = String(e);
+        }
+    };
+    
+    const blocks = document.querySelectorAll('.runnable-js');
+    blocks.forEach((block) => {
+        const btn = block.querySelector('.run-btn') as HTMLElement;
+        const output = block.querySelector('.code-output') as HTMLElement;
+        if (btn && output) {
+            btn.onclick = () => runCode(decodeURIComponent(block.getAttribute('data-code') || ''), output);
+        }
+    });
+  }, [message.text]);
+
   // Extract and normalize citations from citations array or urlContextMetadata
   const citationsList: NormalizedCitation[] = React.useMemo(() => {
     if (message.citations && message.citations.length > 0) {
@@ -273,7 +294,27 @@ const MessageItem: React.FC<MessageItemProps> = ({
   const renderMessageContent = () => {
     if (isModel && !message.isLoading) {
       const proseClasses = "prose prose-sm prose-invert w-full min-w-0"; 
-      const rawMarkup = marked.parse(message.text || "") as string;
+      
+      const renderer = new marked.Renderer();
+      renderer.code = (code: string, language: string) => {
+          if (language === 'javascript' || language === 'js') {
+             return `
+               <div class="runnable-js my-2 p-2 bg-[#121212] rounded border border-white/10" data-code="${encodeURIComponent(code)}">
+                 <pre><code class="language-${language}">${code}</code></pre>
+                 <div class="flex items-center gap-2 mt-2">
+                   <button class="run-btn flex items-center gap-1.5 px-3 py-1 bg-[#79B8FF]/20 hover:bg-[#79B8FF]/30 text-[#79B8FF] text-xs rounded transition-colors cursor-pointer">
+                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                     Run
+                   </button>
+                   <div class="code-output text-xs text-[#E2E2E2] font-mono break-all"></div>
+                 </div>
+               </div>
+             `;
+          }
+          return `<pre><code class="language-${language}">${code}</code></pre>`;
+      };
+      
+      const rawMarkup = marked.parse(message.text || "", { renderer }) as string;
       return (
         <div>
           <div className="flex items-center justify-end gap-1 mb-1">
@@ -386,6 +427,7 @@ const MessageItem: React.FC<MessageItemProps> = ({
               <div className="flex items-center gap-2">
                 <span className="text-[10px] text-[#A8ABB4]/70">
                   {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  {' • ' + (message.text ? message.text.split(/\s+/).filter(w => w.length > 0).length : 0) + ' words'}
                 </span>
                 {isPinned && (
                   <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-300 bg-amber-400/15 px-1.5 py-0.5 rounded border border-amber-400/30">

@@ -10,6 +10,7 @@ import { Send, Menu, Trash2, Download, Settings, Mic, MicOff, Search, Loader2, X
 import { GoogleDriveExportModal } from './GoogleDriveExportModal';
 import { ChatHistorySearchModal } from './ChatHistorySearchModal';
 import AudioVisualizer from './AudioVisualizer';
+import { QuickActionsMenu } from './QuickActionsMenu';
 import { marked } from 'marked';
 
 interface ChatInterfaceProps {
@@ -86,6 +87,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const [highlightedMsgId, setHighlightedMsgId] = useState<string | null>(null);
   const [autoScroll, setAutoScroll] = useState(true);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [isQuickActionsOpen, setIsQuickActionsOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const pinnedMessages = messages.filter(m => Boolean(m.isPinned));
@@ -733,7 +735,18 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           )}
           <div className="flex-grow flex flex-col relative">
             <div className="flex items-center justify-between mb-1 px-1">
-              <span className="text-[10px] text-[#A8ABB4] uppercase tracking-wider font-medium">Input / Markdown</span>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-[#A8ABB4] uppercase tracking-wider font-medium">Input / Markdown</span>
+                <button
+                  type="button"
+                  onClick={() => setIsQuickActionsOpen(!isQuickActionsOpen)}
+                  className="text-[11px] text-[#79B8FF] hover:underline flex items-center gap-1 cursor-pointer bg-white/5 hover:bg-white/10 px-2 py-0.5 rounded transition-colors"
+                  title="Quick Actions"
+                >
+                  <Sparkles size={12} />
+                  <span>Quick Actions</span>
+                </button>
+              </div>
               <button
                 type="button"
                 onClick={() => setIsPreviewMode(prev => !prev)}
@@ -753,6 +766,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 )}
               </button>
             </div>
+            {isQuickActionsOpen && (
+              <QuickActionsMenu 
+                onInsertPrompt={(prompt) => {
+                  setUserQuery(prev => prev + (prev ? ' ' : '') + prompt);
+                  setIsQuickActionsOpen(false);
+                }} 
+              />
+            )}
             {isPreviewMode ? (
               <div 
                 className="w-full min-h-[40px] max-h-32 overflow-y-auto py-2 px-3 border border-[rgba(255,255,255,0.1)] bg-[#2C2C2C] text-[#E2E2E2] rounded-lg text-sm prose prose-sm prose-invert"
