@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Remix: Chat with Docs</title>
+  <meta name="description" content="See the file context in action. Chat with Gemini to explore uploaded text files.">
+  <meta property="og:title" content="Remix: Chat with Docs">
+  <meta property="og:description" content="See the file context in action. Chat with Gemini to explore uploaded text files.">
+  
+  <!-- Google Fonts: Roboto & Raleway -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600&family=Roboto:ital,wght@0,300;0,400;0,500;0,700;1,400;1,500&display=swap" rel="stylesheet">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Roboto', 'Raleway', 'sans-serif'],
+            raleway: ['Raleway', 'sans-serif'],
+            roboto: ['Roboto', 'sans-serif'],
+            heading: ['Raleway', 'sans-serif'],
+          },
+          fontSize: {
+            'xs': ['10px', '14px'],
+            'sm': ['11px', '15px'],
+            'base': ['12px', '18px'],
+            'md': ['12px', '18px'],
+            'lg': ['13px', '18px'],
+            'xl': ['14px', '20px'],
+            '2xl': ['15px', '21px'],
+            '3xl': ['16px', '22px'],
+          }
+        }
+      }
+    };
+  </script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<script type="importmap">
+{
+  "imports": {
+    "@google/genai": "https://esm.sh/@google/genai@^1.0.1",
+    "react-dom/": "https://esm.sh/react-dom@^19.1.0/",
+    "react/": "https://esm.sh/react@^19.1.0/",
+    "react": "https://esm.sh/react@^19.1.0",
+    "marked": "https://esm.sh/marked@^13.0.2",
+    "lucide-react": "https://esm.sh/lucide-react@^0.417.0",
+    "highlight.js": "https://esm.sh/highlight.js@^11.9.0"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>
