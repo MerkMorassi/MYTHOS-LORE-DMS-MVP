@@ -402,6 +402,10 @@ const App: React.FC = () => {
     );
   };
 
+  const handleUpdateMessage = (updatedMsg: ChatMessage) => {
+    setChatMessages(prev => prev.map(m => m.id === updatedMsg.id ? updatedMsg : m));
+  };
+
   const handleTogglePinMessage = useCallback((messageId: string) => {
     setChatMessages(prev => {
       let targetNextPinned = false;
@@ -628,6 +632,7 @@ const App: React.FC = () => {
             onToggleAllFocus={handleToggleAllFocus}
             onTogglePinMessage={handleTogglePinMessage}
             onUnpinAllMessages={handleUnpinAllMessages}
+            onUpdateMessage={handleUpdateMessage}
           />
         </div>
       </div>

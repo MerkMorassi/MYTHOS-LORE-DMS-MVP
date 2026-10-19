@@ -33,6 +33,8 @@ export interface ChatMessage {
   citations?: DocumentCitation[];
   isPinned?: boolean;
   pinnedAt?: string;
+  tags?: string[];
+  reactions?: Record<string, number>;
 }
 
 export interface LocalFile {

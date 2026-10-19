@@ -200,7 +200,8 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
 
   const activeGroupName = fileGroups.find(g => g.id === activeFileGroupId)?.name || "Unknown Group";
   const filteredFiles = files.filter(f =>
-    f.name.toLowerCase().includes(docSearchQuery.trim().toLowerCase())
+    f.name.toLowerCase().includes(docSearchQuery.trim().toLowerCase()) ||
+    f.content.toLowerCase().includes(docSearchQuery.trim().toLowerCase())
   );
 
   return (
@@ -223,7 +224,7 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#888]" size={14} />
         <input
           type="text"
-          placeholder="Search documents by name..."
+          placeholder="Search by name or content..."
           value={docSearchQuery}
           onChange={(e) => setDocSearchQuery(e.target.value)}
           className="w-full pl-8 pr-8 py-2 bg-[#2C2C2C] border border-[rgba(255,255,255,0.1)] rounded-lg text-xs text-[#E2E2E2] placeholder-[#888] focus:ring-1 focus:ring-[#79B8FF] focus:border-[#79B8FF] outline-none transition-colors"

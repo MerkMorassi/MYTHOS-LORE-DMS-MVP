@@ -7,7 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { marked } from 'marked';
 import hljs from 'highlight.js';
 import { ChatMessage, MessageSender, AppVoiceName, DocumentCitation } from '../types';
-import { Volume2, Square, Loader2, FileText, ExternalLink, X, Check, Copy, Pin, PinOff, Play } from 'lucide-react';
+import { Volume2, Square, Loader2, FileText, ExternalLink, X, Check, Copy, Pin, PinOff, Play, Smile } from 'lucide-react';
 import AudioVisualizer from './AudioVisualizer';
 import { generateTts } from '../services/geminiService';
 import { playGeminiAudio, stopCurrentAudio, speakBrowserText } from '../services/audioPlayer';
@@ -27,6 +27,7 @@ interface MessageItemProps {
   browserVoiceURI?: string;
   onTogglePin?: (id: string) => void;
   isHighlighted?: boolean;
+  onUpdateMessage?: (message: ChatMessage) => void;
 }
 
 interface NormalizedCitation {
@@ -175,6 +176,7 @@ const MessageItem: React.FC<MessageItemProps> = ({
   browserVoiceURI,
   onTogglePin,
   isHighlighted = false,
+  onUpdateMessage,
 }) => {
   const isUser = message.sender === MessageSender.USER;
   const isModel = message.sender === MessageSender.MODEL;
@@ -357,7 +359,35 @@ const MessageItem: React.FC<MessageItemProps> = ({
                 <Volume2 size={15} />
               )}
             </button>
+            <button
+              onClick={() => onUpdateMessage?.({ ...message, reactions: { ...message.reactions, '👍': (message.reactions?.['👍'] || 0) + 1 } })}
+              className="p-1 rounded-md transition-colors text-[#A8ABB4] hover:text-[#79B8FF] hover:bg-white/5"
+              title="React 👍"
+            >
+              <Smile size={15} />
+            </button>
           </div>
+          {/* Tags */}
+          <div className="flex gap-1 mb-2 items-center flex-wrap">
+            {message.tags?.map(tag => (
+              <span key={tag} className="text-[10px] px-1.5 py-0.5 bg-white/10 rounded-full text-[#A8ABB4] border border-white/5 flex items-center gap-1">
+                {tag}
+                <button onClick={() => onUpdateMessage?.({ ...message, tags: message.tags?.filter(t => t !== tag) })} className="hover:text-red-400">
+                  <X size={10} />
+                </button>
+              </span>
+            ))}
+            <button 
+                onClick={() => {
+                    const tag = prompt("Enter tag name:");
+                    if (tag) onUpdateMessage?.({ ...message, tags: [...(message.tags || []), tag] });
+                }}
+                className="text-[10px] px-1.5 py-0.5 bg-white/5 rounded-full text-[#79B8FF] border border-white/5 hover:bg-white/10"
+            >
+                + Add Tag
+            </button>
+          </div>
+
           <div className={proseClasses} dangerouslySetInnerHTML={{ __html: rawMarkup }} />
 
           {/* Numbered Citation Bubbles Only */}

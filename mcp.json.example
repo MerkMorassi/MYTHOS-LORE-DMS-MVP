@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "maya-plates": {
+      "command": "python",
+      "args": [
+        "/ABS/PATH/TO/maya-plates-agent/src/mcp-server/server.py"
+      ],
+      "env": {
+        "PLATES_GENERATOR": "maya-plates-agent",
+        "PLATES_OUT_DIR": "/ABS/PATH/TO/plates-out"
+      }
+    }
+  }
+}

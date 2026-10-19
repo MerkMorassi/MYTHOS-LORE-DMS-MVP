@@ -6,7 +6,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChatMessage, MessageSender, LocalFile } from '../types'; 
 import MessageItem from './MessageItem';
-import { Send, Menu, Trash2, Download, Settings, Mic, MicOff, Search, Loader2, X, FileText, Layers, Check, ChevronDown, ChevronUp, AlertCircle, Eye, EyeOff, CloudUpload, History, Pin, PinOff, ArrowDown, Pencil } from 'lucide-react';
+import { Send, Menu, Trash2, Download, Settings, Mic, MicOff, Search, Loader2, X, FileText, Layers, Check, ChevronDown, ChevronUp, AlertCircle, Eye, EyeOff, CloudUpload, History, Pin, PinOff, ArrowDown, Pencil, Sparkles } from 'lucide-react';
 import { GoogleDriveExportModal } from './GoogleDriveExportModal';
 import { ChatHistorySearchModal } from './ChatHistorySearchModal';
 import AudioVisualizer from './AudioVisualizer';
@@ -45,6 +45,7 @@ interface ChatInterfaceProps {
   // Pinned Messages props
   onTogglePinMessage?: (id: string) => void;
   onUnpinAllMessages?: () => void;
+  onUpdateMessage?: (message: ChatMessage) => void;
 }
 
 const ChatInterface: React.FC<ChatInterfaceProps> = ({ 
@@ -76,6 +77,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   onToggleAllFocus,
   onTogglePinMessage,
   onUnpinAllMessages,
+  onUpdateMessage,
 }) => {
   const [userQuery, setUserQuery] = useState('');
   const [filterQuery, setFilterQuery] = useState('');
@@ -88,6 +90,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const [autoScroll, setAutoScroll] = useState(true);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [isQuickActionsOpen, setIsQuickActionsOpen] = useState(false);
+  const [isReadOnly, setIsReadOnly] = useState(false);
+  const [activeTagFilter, setActiveTagFilter] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const pinnedMessages = messages.filter(m => Boolean(m.isPinned));
@@ -181,6 +185,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
             />
             <Search size={14} className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-[#A8ABB4]" />
           </div>
+          <select 
+            value={activeTagFilter || ''}
+            onChange={(e) => setActiveTagFilter(e.target.value || null)}
+            className="bg-[#2C2C2C] border border-[rgba(255,255,255,0.05)] text-[#E2E2E2] rounded-md text-xs py-1.5 px-2"
+          >
+            <option value="">All Tags</option>
+            {Array.from(new Set(messages.flatMap(m => m.tags || []))).map(tag => <option key={tag} value={tag}>{tag}</option>)}
+          </select>
           {onOpenSettings && (
             <button
               onClick={onOpenSettings}
@@ -233,6 +245,21 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
             <ArrowDown size={14} />
             <span className="hidden sm:inline">Auto-scroll: {autoScroll ? 'On' : 'Off'}</span>
           </button>
+          {/* Read-Only Toggle */}
+          <button
+            onClick={() => setIsReadOnly(!isReadOnly)}
+            className={`p-1.5 rounded-md transition-colors flex items-center gap-1.5 text-sm font-medium cursor-pointer border ${
+              isReadOnly
+                ? 'bg-[#121212] text-white border-white/20'
+                : 'text-[#A8ABB4] hover:text-white border-transparent'
+            }`}
+            title={isReadOnly ? "Exit read-only mode" : "Enter read-only mode"}
+            aria-label="Toggle read-only mode"
+          >
+            {isReadOnly ? <EyeOff size={16} /> : <Eye size={16} />}
+            <span className="hidden sm:inline">{isReadOnly ? 'Read-Only' : 'Focus Mode'}</span>
+          </button>
+          
           {onClearChat && messages.length > 1 && (
             <button
               onClick={onClearChat}
@@ -588,7 +615,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
               }
             };
 
-            const filteredMessages = messages.filter(m => !filterQuery || m.text?.toLowerCase().includes(filterQuery.toLowerCase()));
+            const filteredMessages = messages.filter(m => 
+                (!filterQuery || m.text?.toLowerCase().includes(filterQuery.toLowerCase())) &&
+                (!activeTagFilter || m.tags?.includes(activeTagFilter))
+            );
             let lastDateLabel: string | null = null;
 
             return filteredMessages.map((msg) => {
@@ -610,6 +640,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                     voiceName={voiceName} 
                     browserVoiceURI={browserVoiceURI}
                     onTogglePin={onTogglePinMessage}
+                    onUpdateMessage={onUpdateMessage}
                     isHighlighted={highlightedMsgId === msg.id}
                   />
                 </React.Fragment>
