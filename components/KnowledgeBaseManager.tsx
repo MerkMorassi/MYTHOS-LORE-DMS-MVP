@@ -3,12 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { Upload, Trash2, ChevronDown, X, Edit2, Check, AlertCircle, FileText, RefreshCw, SkipForward, Loader2, Folder, Search, FileEdit, BookOpen } from 'lucide-react';
 import { FileGroup, LocalFile } from '../types';
 import { GoogleDriveImportModal } from './GoogleDriveImportModal';
 import { FileGroupCrudModal } from './FileGroupCrudModal';
-import { generateDocumentSummary } from '../services/geminiService';
+import { generateDocumentSummary, fetchEmbedding } from '../services/geminiService';
 
 interface KnowledgeBaseManagerProps {
   files: LocalFile[];
@@ -54,10 +54,20 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
   const [currentDuplicateIndex, setCurrentDuplicateIndex] = useState(0);
   const [stagedFiles, setStagedFiles] = useState<LocalFile[]>([]);
   const [docSearchQuery, setDocSearchQuery] = useState('');
+  const [isSemanticSearchEnabled, setIsSemanticSearchEnabled] = useState(false);
   const [summaries, setSummaries] = useState<Record<string, string>>({});
   const [summaryErrors, setSummaryErrors] = useState<Record<string, string>>({});
   const [summarizingFile, setSummarizingFile] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [queryEmbedding, setQueryEmbedding] = useState<number[] | null>(null);
+
+  useEffect(() => {
+    if (isSemanticSearchEnabled && docSearchQuery.trim()) {
+        fetchEmbedding(docSearchQuery.trim()).then(setQueryEmbedding).catch(console.error);
+    } else {
+        setQueryEmbedding(null);
+    }
+  }, [isSemanticSearchEnabled, docSearchQuery]);
 
   const handleSummarize = async (file: LocalFile) => {
     if (file.summary || summaries[file.name]) return; // Already summarized
@@ -113,11 +123,12 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
       const file = selectedFiles[i];
       try {
         const content = await readSingleFile(file);
+        const embedding = await fetchEmbedding(content);
         const isDuplicate = files.some(f => f.name === file.name);
         if (isDuplicate) {
           duplicates.push({ file, content });
         } else {
-          nonDuplicates.push({ name: file.name, content });
+          nonDuplicates.push({ name: file.name, content, embedding });
         }
       } catch (err: any) {
         console.warn(`Could not read file "${file.name}":`, err?.message || err);
@@ -148,13 +159,14 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
     }
   };
 
-  const handleResolveDuplicate = (action: 'overwrite' | 'skip') => {
+  const handleResolveDuplicate = async (action: 'overwrite' | 'skip') => {
     const currentItem = duplicateQueue[currentDuplicateIndex];
     if (!currentItem) return;
 
     let nextStaged = [...stagedFiles];
     if (action === 'overwrite') {
-      nextStaged.push({ name: currentItem.file.name, content: currentItem.content });
+      const embedding = await fetchEmbedding(currentItem.content);
+      nextStaged.push({ name: currentItem.file.name, content: currentItem.content, embedding });
       setStagedFiles(nextStaged);
     }
 
@@ -172,12 +184,13 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
     }
   };
 
-  const handleResolveAllRemaining = (action: 'overwrite' | 'skip') => {
+  const handleResolveAllRemaining = async (action: 'overwrite' | 'skip') => {
     let nextStaged = [...stagedFiles];
     if (action === 'overwrite') {
       for (let i = currentDuplicateIndex; i < duplicateQueue.length; i++) {
         const item = duplicateQueue[i];
-        nextStaged.push({ name: item.file.name, content: item.content });
+        const embedding = await fetchEmbedding(item.content);
+        nextStaged.push({ name: item.file.name, content: item.content, embedding });
       }
     }
     if (nextStaged.length > 0) {
@@ -199,10 +212,34 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
   };
 
   const activeGroupName = fileGroups.find(g => g.id === activeFileGroupId)?.name || "Unknown Group";
-  const filteredFiles = files.filter(f =>
-    f.name.toLowerCase().includes(docSearchQuery.trim().toLowerCase()) ||
-    f.content.toLowerCase().includes(docSearchQuery.trim().toLowerCase())
-  );
+
+  const cosineSimilarity = (a: number[], b: number[]) => {
+      let dotProduct = 0;
+      let mA = 0;
+      let mB = 0;
+      for (let i = 0; i < a.length; i++) {
+        dotProduct += a[i] * b[i];
+        mA += a[i] * a[i];
+        mB += b[i] * b[i];
+      }
+      return dotProduct / (Math.sqrt(mA) * Math.sqrt(mB));
+  };
+  
+  const filteredFiles = useMemo(() => {
+    if (!docSearchQuery.trim()) return files;
+    
+    if (isSemanticSearchEnabled && queryEmbedding) {
+        return files.map(f => ({
+            ...f,
+            score: f.embedding ? cosineSimilarity(f.embedding, queryEmbedding) : 0
+        })).filter(f => (f.score || 0) > 0.5).sort((a,b) => (b.score || 0) - (a.score || 0));
+    }
+    
+    return files.filter(f =>
+        f.name.toLowerCase().includes(docSearchQuery.trim().toLowerCase()) ||
+        f.content.toLowerCase().includes(docSearchQuery.trim().toLowerCase())
+    );
+  }, [files, docSearchQuery, isSemanticSearchEnabled, queryEmbedding]);
 
   return (
     <div className="p-4 bg-[#1E1E1E] shadow-md rounded-xl h-full flex flex-col border border-[rgba(255,255,255,0.05)]">
@@ -220,7 +257,7 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
       </div>
 
       {/* Search bar at the top of sidebar */}
-      <div className="relative mb-3">
+      <div className="relative mb-1">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#888]" size={14} />
         <input
           type="text"
@@ -228,7 +265,7 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
           value={docSearchQuery}
           onChange={(e) => setDocSearchQuery(e.target.value)}
           className="w-full pl-8 pr-8 py-2 bg-[#2C2C2C] border border-[rgba(255,255,255,0.1)] rounded-lg text-xs text-[#E2E2E2] placeholder-[#888] focus:ring-1 focus:ring-[#79B8FF] focus:border-[#79B8FF] outline-none transition-colors"
-          aria-label="Search uploaded documents by name"
+          aria-label="Search uploaded documents"
         />
         {docSearchQuery && (
           <button
@@ -242,6 +279,10 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
           </button>
         )}
       </div>
+      <label className="flex items-center gap-2 text-xs text-[#A8ABB4] mb-3 cursor-pointer ml-1">
+          <input type="checkbox" checked={isSemanticSearchEnabled} onChange={() => setIsSemanticSearchEnabled(!isSemanticSearchEnabled)} className="accent-[#79B8FF]"/>
+          <span>Semantic Search</span>
+      </label>
       
        <div className="mb-3">
          <div className="flex items-center justify-between mb-1">

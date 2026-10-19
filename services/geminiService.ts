@@ -111,3 +111,8 @@ export const generateDocumentSummary = async (content: string): Promise<string> 
   return data.text;
 };
 
+export const fetchEmbedding = async (text: string): Promise<number[]> => {
+  const data = await safeFetchJson("/api/embeddings", { text });
+  return data.embedding;
+};
+

@@ -42,6 +42,8 @@ export interface LocalFile {
   content: string;
   inFocus?: boolean;
   summary?: string;
+  embedding?: number[];
+  score?: number;
 }
 
 export interface FileGroup {

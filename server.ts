@@ -618,6 +618,21 @@ ${text.substring(0, 3000)}`;
     });
   });
 
+  app.post("/api/embeddings", async (req, res) => {
+    try {
+      const { text, apiKey } = req.body;
+      const aiInstance = getAiInstance(apiKey);
+      const result = await aiInstance.models.embedContent({
+        model: "gemini-embedding-2-preview",
+        content: { parts: [{ text }] },
+      });
+      res.json({ embedding: result.embedding?.values });
+    } catch (err: any) {
+      console.error("Embedding generation failed:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
