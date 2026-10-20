@@ -129,6 +129,8 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
           duplicates.push({ file, content });
         } else {
           nonDuplicates.push({ name: file.name, content, embedding });
+          // Auto-summarize
+          handleSummarize({ name: file.name, content, embedding });
         }
       } catch (err: any) {
         console.warn(`Could not read file "${file.name}":`, err?.message || err);
@@ -318,7 +320,14 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
            />
          </div>
        </div>
-
+       <button
+         onClick={() => setIsDriveModalOpen(true)}
+         className="flex items-center justify-center gap-2 h-10 px-4 bg-[#4285F4]/15 hover:bg-[#4285F4]/25 border border-[#4285F4]/30 text-[#8AB4F8] rounded-lg transition-colors text-sm w-full cursor-pointer font-medium mb-3"
+       >
+         <Folder size={16} className="text-[#4285F4]" />
+         <span>Connect Drive</span>
+       </button>
+ 
        <FileGroupCrudModal
          isOpen={isGroupCrudOpen}
          onClose={() => setIsGroupCrudOpen(false)}
@@ -430,13 +439,16 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
                   <span className={`text-xs truncate ${file.inFocus !== false ? 'text-[#E2E2E2]' : 'text-[#A8ABB4]'}`} title={file.name}>
                     {file.name}
                   </span>
+                  <span className="text-[10px] bg-white/10 px-1.5 py-0.5 rounded text-[#A8ABB4] ml-auto">
+                    {file.content.split(/\s+/).filter(w => w.length > 0).length} words
+                  </span>
                 </label>
                 <div className="flex items-center ml-2">
                   <button 
                     onClick={() => handleSummarize(file)}
-                    disabled={!!summarizingFile || !!summaries[file.name]}
-                    className={`p-1 rounded-md transition-colors ${summaries[file.name] ? 'text-[#79B8FF]' : 'text-[#A8ABB4] hover:text-[#79B8FF] hover:bg-[#79B8FF]/10'} ${summarizingFile === file.name ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    title={summaries[file.name] ? "Summary available" : "Generate summary"}
+                    disabled={!!summarizingFile || !!summaries[file.name] || !!file.summary}
+                    className={`p-1 rounded-md transition-colors ${summaries[file.name] || file.summary ? 'text-[#79B8FF]' : 'text-[#A8ABB4] hover:text-[#79B8FF] hover:bg-[#79B8FF]/10'} ${summarizingFile === file.name ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    title={summaries[file.name] || file.summary ? "Summary available" : "Generate summary"}
                     aria-label={`Summarize ${file.name}`}
                   >
                     {summarizingFile === file.name ? <Loader2 size={16} className="animate-spin" /> : <BookOpen size={16} />}

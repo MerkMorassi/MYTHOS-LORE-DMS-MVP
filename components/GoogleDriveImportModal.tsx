@@ -9,6 +9,7 @@ import { initializeApp, getApps } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider, User } from 'firebase/auth';
 import firebaseConfig from '../firebase-applet-config.json';
 import { LocalFile } from '../types';
+import { listDriveFiles, getDriveFileContent } from '../services/driveService';
 
 interface GoogleDriveImportModalProps {
   isOpen: boolean;
@@ -76,16 +77,8 @@ export const GoogleDriveImportModal: React.FC<GoogleDriveImportModalProps> = ({
     setIsLoadingFiles(true);
     setError(null);
     try {
-      const query = encodeURIComponent("mimeType != 'application/vnd.google-apps.folder' and trashed = false");
-      const res = await fetch(`https://www.googleapis.com/drive/v3/files?pageSize=100&q=${query}&fields=files(id,name,mimeType,webViewLink)`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error?.message || `Drive API error (status ${res.status})`);
-      }
-      const data = await res.json();
-      setFiles(data.files || []);
+      const files = await listDriveFiles(token);
+      setFiles(files);
     } catch (err: any) {
       console.warn("Error fetching Drive files:", err);
       setError(err?.message || "Failed to list Google Drive files.");
@@ -117,40 +110,13 @@ export const GoogleDriveImportModal: React.FC<GoogleDriveImportModalProps> = ({
         const fileMeta = files.find(f => f.id === fileId);
         if (!fileMeta) continue;
 
-        let content = '';
-        const mime = fileMeta.mimeType;
-
-        if (mime === 'application/vnd.google-apps.document') {
-          // Export Google Doc as plain text
-          const exportRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/export?mimeType=text/plain`, {
-            headers: { Authorization: `Bearer ${accessToken}` },
-          });
-          if (exportRes.ok) {
-            content = await exportRes.text();
-          }
-        } else if (mime === 'application/vnd.google-apps.spreadsheet') {
-          // Export Google Sheet as CSV
-          const exportRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/export?mimeType=text/csv`, {
-            headers: { Authorization: `Bearer ${accessToken}` },
-          });
-          if (exportRes.ok) {
-            content = await exportRes.text();
-          }
-        } else {
-          // Download binary / text file content
-          const downloadRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
-            headers: { Authorization: `Bearer ${accessToken}` },
-          });
-          if (downloadRes.ok) {
-            content = await downloadRes.text();
-          }
-        }
+        const content = await getDriveFileContent(fileId, fileMeta.mimeType, accessToken);
 
         if (content) {
           let fileName = fileMeta.name;
-          if (mime === 'application/vnd.google-apps.document' && !fileName.endsWith('.txt')) {
+          if (fileMeta.mimeType === 'application/vnd.google-apps.document' && !fileName.endsWith('.txt')) {
             fileName += '.txt';
-          } else if (mime === 'application/vnd.google-apps.spreadsheet' && !fileName.endsWith('.csv')) {
+          } else if (fileMeta.mimeType === 'application/vnd.google-apps.spreadsheet' && !fileName.endsWith('.csv')) {
             fileName += '.csv';
           }
 
