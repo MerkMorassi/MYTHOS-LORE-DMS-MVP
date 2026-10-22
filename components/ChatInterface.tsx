@@ -27,6 +27,7 @@ interface ChatInterfaceProps {
   onOpenSettings?: () => void;
   voiceName?: import('../types').AppVoiceName;
   browserVoiceURI?: string;
+  systemPersona?: string;
   // Live Voice props
   isLiveConnected?: boolean;
   isLiveConnecting?: boolean;
@@ -62,6 +63,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   onOpenSettings,
   voiceName = 'Browser',
   browserVoiceURI,
+  systemPersona,
   isLiveConnected = false,
   isLiveConnecting = false,
   isLiveMuted = false,
@@ -849,7 +851,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         isOpen={isDriveExportOpen}
         onClose={() => setIsDriveExportOpen(false)}
         chatMessages={messages}
-        systemPersona={voiceName} // or systemPersona
+        systemPersona={systemPersona}
+        files={allFiles}
+        groupName={activeGroupName}
       />
 
       {/* Chat History Archive Search Modal */}

@@ -12,6 +12,7 @@ import ChatInterface from './components/ChatInterface';
 import SettingsModal, { DEFAULT_SETTINGS } from './components/SettingsModal';
 import { useLiveVoice } from './hooks/useLiveVoice';
 import { playGeminiAudio, speakBrowserText } from './services/audioPlayer';
+import { generateChatExportMarkdown } from './services/exportService';
 
 const INITIAL_FILE_GROUPS: FileGroup[] = [
   { id: 'custom-docs', name: 'Custom Documents 1', files: [] },
@@ -457,17 +458,21 @@ const App: React.FC = () => {
   const handleExportChat = () => {
     if (chatMessages.length === 0) return;
     
-    const content = chatMessages.map(msg => {
-      const sender = msg.sender === MessageSender.USER ? 'User' : (msg.sender === MessageSender.MODEL ? 'Assistant' : 'System');
-      const time = new Date(msg.timestamp).toLocaleString();
-      return `### ${sender} - ${time}\n\n${msg.text}\n`;
-    }).join('\n---\n\n');
+    const activeGroupName = activeGroup?.name || 'Knowledge Base';
+    const content = generateChatExportMarkdown({
+      chatMessages,
+      files: currentFilesForChat,
+      groupName: activeGroupName,
+      appSettings,
+    });
     
     const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `chat-export-${new Date().toISOString().split('T')[0]}.md`;
+    const dateStamp = new Date().toISOString().split('T')[0];
+    const sanitizedGroup = activeGroupName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    a.download = `chat-export-${sanitizedGroup || 'session'}-${dateStamp}.md`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -618,6 +623,7 @@ const App: React.FC = () => {
             onExportChat={handleExportChat}
             voiceName={appSettings.voiceName}
             browserVoiceURI={appSettings.browserVoiceURI}
+            systemPersona={appSettings.systemPersona}
             onOpenSettings={() => setIsSettingsOpen(true)}
             isLiveConnected={isLiveConnected}
             isLiveConnecting={isLiveConnecting}

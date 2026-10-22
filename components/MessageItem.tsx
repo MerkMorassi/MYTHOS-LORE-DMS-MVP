@@ -189,6 +189,15 @@ const MessageItem: React.FC<MessageItemProps> = ({
   const [selectedCitation, setSelectedCitation] = useState<NormalizedCitation | null>(null);
 
   useEffect(() => {
+    const handleAudioStopped = () => {
+      setIsPlayingTts(false);
+      setIsLoadingTts(false);
+    };
+    window.addEventListener('app_audio_stopped', handleAudioStopped);
+    return () => window.removeEventListener('app_audio_stopped', handleAudioStopped);
+  }, []);
+
+  useEffect(() => {
     const runCode = (code: string, outputEl: Element) => {
         try {
             // Using a Function constructor is slightly safer than eval, but still unsafe for production
@@ -241,8 +250,12 @@ const MessageItem: React.FC<MessageItemProps> = ({
 
     if (!message.text || message.isLoading) return;
 
-    // Strip markdown symbols for natural TTS speech
+    // Stop any other currently playing audio first
+    stopCurrentAudio();
+
+    // Strip markdown formatting and raw code blocks for natural TTS speech
     const plainText = message.text
+      .replace(/```[\s\S]*?```/g, 'Code block omitted.')
       .replace(/`{1,3}[^`]*`{1,3}/g, '')
       .replace(/[#*_~\[\]\(\)]/g, '')
       .trim();
@@ -342,21 +355,34 @@ const MessageItem: React.FC<MessageItemProps> = ({
                 <Pin size={14} className={isPinned ? "fill-amber-400" : ""} />
               </button>
             )}
+            {/* Read Aloud Button */}
             <button 
               onClick={handleReadAloud} 
-              className={`p-1 rounded-md transition-colors ${
+              className={`px-2 py-0.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
                 isPlayingTts 
-                  ? 'text-[#79B8FF] bg-[#79B8FF]/10' 
-                  : 'text-[#A8ABB4] hover:text-[#79B8FF] hover:bg-white/5'
+                  ? 'text-[#79B8FF] bg-[#79B8FF]/20 border border-[#79B8FF]/40 shadow-xs' 
+                  : isLoadingTts
+                  ? 'text-[#79B8FF] bg-white/5 border border-white/10'
+                  : 'text-[#A8ABB4] hover:text-[#79B8FF] hover:bg-white/10 border border-white/5'
               }`}
-              title={isPlayingTts ? "Stop reading" : `Read aloud (${voiceName} voice)`}
+              title={isPlayingTts ? "Stop reading aloud" : `Read aloud with ${voiceName} voice`}
+              aria-label={isPlayingTts ? "Stop reading aloud" : "Read Aloud"}
             >
               {isLoadingTts ? (
-                <Loader2 size={15} className="animate-spin text-[#79B8FF]" />
+                <>
+                  <Loader2 size={13} className="animate-spin text-[#79B8FF]" />
+                  <span>Loading...</span>
+                </>
               ) : isPlayingTts ? (
-                <AudioVisualizer isActive={isPlayingTts} className="h-3" />
+                <>
+                  <Square size={12} className="fill-current text-[#79B8FF]" />
+                  <span>Stop</span>
+                </>
               ) : (
-                <Volume2 size={15} />
+                <>
+                  <Volume2 size={13} />
+                  <span>Read Aloud</span>
+                </>
               )}
             </button>
             <button

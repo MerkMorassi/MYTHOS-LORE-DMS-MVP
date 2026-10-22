@@ -31,6 +31,9 @@ export const stopCurrentAudio = () => {
       window.speechSynthesis.cancel();
     } catch (e) {}
   }
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('app_audio_stopped'));
+  }
 };
 
 /**
@@ -62,10 +65,16 @@ export const speakBrowserText = (text: string, voiceURI?: string): Promise<void>
       }
 
       utterance.onend = () => {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('app_audio_stopped'));
+        }
         resolve();
       };
 
       utterance.onerror = (e) => {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('app_audio_stopped'));
+        }
         // If canceled explicitly, resolve gracefully
         if (e.error === 'canceled' || e.error === 'interrupted') {
           resolve();
@@ -93,6 +102,9 @@ export const playGeminiAudio = async (base64Data: string, mimeType = 'audio/mp3'
 
       audio.onended = () => {
         currentAudio = null;
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('app_audio_stopped'));
+        }
         resolve();
       };
 

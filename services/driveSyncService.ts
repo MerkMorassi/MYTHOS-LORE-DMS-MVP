@@ -3,7 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { ChatMessage, MessageSender } from '../types';
+import { ChatMessage, MessageSender, LocalFile } from '../types';
+import { generateChatExportMarkdown } from './exportService';
 
 const FOLDER_NAME = "Mythos DMS Archives";
 
@@ -47,12 +48,14 @@ export async function getOrCreateDriveFolder(token: string): Promise<string> {
 }
 
 /**
- * Pushes chat history logs to the designated "Mythos DMS Archives" folder in Google Drive.
+ * Pushes chat history logs and knowledge base context to the designated "Mythos DMS Archives" folder in Google Drive.
  */
 export async function syncChatHistoryToDrive(
   token: string,
   chatMessages: ChatMessage[],
-  systemPersona?: string
+  systemPersona?: string,
+  files?: LocalFile[],
+  groupName?: string
 ): Promise<string> {
   if (!token || !chatMessages || chatMessages.length === 0) {
     throw new Error("No access token or chat messages provided for sync.");
@@ -61,17 +64,14 @@ export async function syncChatHistoryToDrive(
   const folderId = await getOrCreateDriveFolder(token);
 
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const fileName = `mythos-auto-archive-${timestamp}.md`;
+  const fileName = `mythos-archive-${timestamp}.md`;
 
-  const header = `# Mythos DMS Reader - Automated Chat Archive\nSynced At: ${new Date().toLocaleString()}\nSystem Persona: ${systemPersona || 'Default'}\n\n---\n\n`;
-  const messagesContent = chatMessages.map(msg => {
-    const sender = msg.sender === MessageSender.USER ? 'User' : (msg.sender === MessageSender.MODEL ? 'Assistant (AI Persona)' : 'System');
-    const time = new Date(msg.timestamp).toLocaleString();
-    const pinBadge = msg.isPinned ? ' [📌 PINNED]' : '';
-    return `### [${time}] ${sender}${pinBadge}\n\n${msg.text}\n`;
-  }).join('\n---\n\n');
-
-  const fileContent = header + messagesContent;
+  const fileContent = generateChatExportMarkdown({
+    chatMessages,
+    files: files || [],
+    groupName: groupName || 'Knowledge Base',
+    appSettings: systemPersona ? ({ systemPersona } as any) : undefined,
+  });
 
   const metadata = {
     name: fileName,

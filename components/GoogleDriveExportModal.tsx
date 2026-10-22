@@ -8,7 +8,7 @@ import { X, CloudUpload, Loader2, Check, AlertCircle, FolderSync } from 'lucide-
 import { initializeApp, getApps } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider, User } from 'firebase/auth';
 import firebaseConfig from '../firebase-applet-config.json';
-import { ChatMessage, FileGroup } from '../types';
+import { ChatMessage, FileGroup, LocalFile } from '../types';
 import { syncChatHistoryToDrive } from '../services/driveSyncService';
 
 interface GoogleDriveExportModalProps {
@@ -17,6 +17,8 @@ interface GoogleDriveExportModalProps {
   chatMessages: ChatMessage[];
   systemPersona?: string;
   fileGroups?: FileGroup[];
+  files?: LocalFile[];
+  groupName?: string;
 }
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
@@ -30,6 +32,8 @@ export const GoogleDriveExportModal: React.FC<GoogleDriveExportModalProps> = ({
   chatMessages,
   systemPersona,
   fileGroups,
+  files,
+  groupName,
 }) => {
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -84,7 +88,7 @@ export const GoogleDriveExportModal: React.FC<GoogleDriveExportModalProps> = ({
     setSuccessMessage(null);
 
     try {
-      const uploadedFileName = await syncChatHistoryToDrive(token, chatMessages, systemPersona);
+      const uploadedFileName = await syncChatHistoryToDrive(token, chatMessages, systemPersona, files, groupName);
       setSuccessMessage(`Successfully synced chat archive to "Mythos DMS Archives" folder as "${uploadedFileName}"!`);
     } catch (err: any) {
       console.warn("Google Drive automated sync error:", err);
