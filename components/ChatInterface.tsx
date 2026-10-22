@@ -175,6 +175,16 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          {onOpenSettings && (
+            <button
+              onClick={onOpenSettings}
+              className="p-1.5 text-[#A8ABB4] hover:text-[#79B8FF] rounded-md hover:bg-[#79B8FF]/10 transition-colors flex items-center justify-center"
+              aria-label="Settings"
+              title="Settings"
+            >
+              <Settings size={18} />
+            </button>
+          )}
           <div className="relative mr-1">
             <input
               type="text"
@@ -193,16 +203,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
             <option value="">All Tags</option>
             {Array.from(new Set(messages.flatMap(m => m.tags || []))).map(tag => <option key={tag} value={tag}>{tag}</option>)}
           </select>
-          {onOpenSettings && (
-            <button
-              onClick={onOpenSettings}
-              className="p-1.5 text-[#A8ABB4] hover:text-[#79B8FF] rounded-md hover:bg-[#79B8FF]/10 transition-colors flex items-center justify-center"
-              aria-label="Settings"
-              title="Settings"
-            >
-              <Settings size={18} />
-            </button>
-          )}
           <button
             onClick={() => setIsHistorySearchOpen(true)}
             className="p-1.5 text-[#A8ABB4] hover:text-[#79B8FF] rounded-md hover:bg-[#79B8FF]/10 transition-colors flex items-center gap-1.5 text-sm font-medium"

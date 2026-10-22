@@ -324,88 +324,78 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const activeKeyEntry = apiKeys.find(k => k.id === selectedKeyId);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs">
-      <div className="bg-[#1E1E1E] border border-[rgba(255,255,255,0.1)] rounded-xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 bg-black/80 backdrop-blur-md">
+      <div className="bg-[#1C1C1C] w-full h-full flex flex-col shadow-2xl">
         {/* Header */}
-        <div className="p-4 border-b border-[rgba(255,255,255,0.08)] flex justify-between items-center bg-[#252525]">
-          <div className="flex items-center gap-2.5">
-            <Volume2 className="text-[#79B8FF]" size={20} />
-            <h3 className="font-semibold text-[#E2E2E2] text-lg">System & API Settings</h3>
-          </div>
+        <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
+          <h2 className="text-xl font-bold text-white">App Settings</h2>
           <button
-            onClick={() => {
-              stopCurrentAudio();
-              onClose();
-            }}
-            className="p-1 text-[#A8ABB4] hover:text-white rounded-md hover:bg-white/10 transition-colors"
-            aria-label="Close"
+            onClick={onClose}
+            className="p-2 rounded-full hover:bg-white/10 text-[#A8ABB4] hover:text-white transition-colors"
           >
             <X size={20} />
           </button>
         </div>
+        
+        {/* Main Content */}
+        <div className="flex flex-1 overflow-hidden">
+            {/* Sidebar Tabs */}
+            <div className="w-64 border-r border-white/10 flex flex-col p-2 space-y-1">
+                <button
+                    type="button"
+                    onClick={() => setActiveTab('keys')}
+                    className={`py-3 px-4 text-sm font-medium rounded-lg transition-colors flex items-center gap-3 ${
+                    activeTab === 'keys'
+                        ? 'bg-[#79B8FF]/10 text-[#79B8FF]'
+                        : 'text-[#A8ABB4] hover:text-white hover:bg-white/5'
+                    }`}
+                >
+                    <Key size={16} />
+                    <span>Gemini API Keys</span>
+                </button>
 
-        {/* Tab Navigation */}
-        <div className="flex border-b border-[rgba(255,255,255,0.08)] bg-[#1A1A1A] px-3 overflow-x-auto">
-          <button
-            type="button"
-            onClick={() => setActiveTab('keys')}
-            className={`py-3 px-3.5 text-xs font-medium border-b-2 transition-colors flex items-center gap-2 shrink-0 ${
-              activeTab === 'keys'
-                ? 'border-[#79B8FF] text-[#79B8FF] bg-white/[0.02]'
-                : 'border-transparent text-[#A8ABB4] hover:text-white'
-            }`}
-          >
-            <Key size={14} />
-            <span>Gemini API Keys</span>
-            {apiKeys.length > 0 && (
-              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-[#79B8FF]/20 text-[#79B8FF] font-semibold">
-                {apiKeys.length}
-              </span>
-            )}
-          </button>
+                <button
+                    type="button"
+                    onClick={() => setActiveTab('voice')}
+                    className={`py-3 px-4 text-sm font-medium rounded-lg transition-colors flex items-center gap-3 ${
+                    activeTab === 'voice'
+                        ? 'bg-[#79B8FF]/10 text-[#79B8FF]'
+                        : 'text-[#A8ABB4] hover:text-white hover:bg-white/5'
+                    }`}
+                >
+                    <Volume2 size={16} />
+                    <span>AI Voice & Audio</span>
+                </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('voice')}
-            className={`py-3 px-3.5 text-xs font-medium border-b-2 transition-colors flex items-center gap-2 shrink-0 ${
-              activeTab === 'voice'
-                ? 'border-[#79B8FF] text-[#79B8FF] bg-white/[0.02]'
-                : 'border-transparent text-[#A8ABB4] hover:text-white'
-            }`}
-          >
-            <Volume2 size={14} />
-            <span>AI Voice & Audio</span>
-          </button>
+                <button
+                    type="button"
+                    onClick={() => setActiveTab('persona')}
+                    className={`py-3 px-4 text-sm font-medium rounded-lg transition-colors flex items-center gap-3 ${
+                    activeTab === 'persona'
+                        ? 'bg-[#79B8FF]/10 text-[#79B8FF]'
+                        : 'text-[#A8ABB4] hover:text-white hover:bg-white/5'
+                    }`}
+                >
+                    <Sparkles size={16} />
+                    <span>RAG Persona</span>
+                </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('persona')}
-            className={`py-3 px-3.5 text-xs font-medium border-b-2 transition-colors flex items-center gap-2 shrink-0 ${
-              activeTab === 'persona'
-                ? 'border-[#79B8FF] text-[#79B8FF] bg-white/[0.02]'
-                : 'border-transparent text-[#A8ABB4] hover:text-white'
-            }`}
-          >
-            <Sparkles size={14} />
-            <span>RAG Persona</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('overview')}
-            className={`py-3 px-3.5 text-xs font-medium border-b-2 transition-colors flex items-center gap-2 shrink-0 ${
-              activeTab === 'overview'
-                ? 'border-[#79B8FF] text-[#79B8FF] bg-white/[0.02]'
-                : 'border-transparent text-[#A8ABB4] hover:text-white'
-            }`}
-          >
-            <BarChart2 size={14} />
-            <span>Overview & Stats</span>
-          </button>
-        </div>
-
-        {/* Tab Body */}
-        <div className="p-5 overflow-y-auto space-y-6 flex-1 text-sm text-[#E2E2E2]">
+                <button
+                    type="button"
+                    onClick={() => setActiveTab('overview')}
+                    className={`py-3 px-4 text-sm font-medium rounded-lg transition-colors flex items-center gap-3 ${
+                    activeTab === 'overview'
+                        ? 'bg-[#79B8FF]/10 text-[#79B8FF]'
+                        : 'text-[#A8ABB4] hover:text-white hover:bg-white/5'
+                    }`}
+                >
+                    <BarChart2 size={16} />
+                    <span>Overview & Stats</span>
+                </button>
+            </div>
+            
+            {/* Tab Body */}
+            <div className="p-5 overflow-y-auto space-y-6 flex-1 text-sm text-[#E2E2E2]">
           
           {/* TAB 1: GEMINI API KEYS & CREDENTIALS */}
           {activeTab === 'keys' && (
@@ -1093,6 +1083,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             >
               Save Preferences
             </button>
+          </div>
           </div>
         </div>
       </div>

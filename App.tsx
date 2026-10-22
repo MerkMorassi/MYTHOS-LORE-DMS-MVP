@@ -487,6 +487,7 @@ const App: React.FC = () => {
         timestamp: new Date(),
       };
       setChatMessages(prev => [...prev, userMessage]);
+      saveChatMessages([...chatMessages, userMessage]).catch(console.error);
 
       sendLiveTextMessage(query);
       return;
