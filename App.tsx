@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ChatMessage, MessageSender, FileGroup, LocalFile, AppSettings } from './types';
-import { generateContentWithUrlContext, getInitialSuggestions, generateTts } from './services/geminiService';
+import { generateContentWithUrlContext, getInitialSuggestions, generateTts, fetchEmbedding, generateDocumentSummary } from './services/geminiService';
 import { saveFileGroups, loadFileGroups, saveChatMessages, loadChatMessages, toggleChatMessagePinInDB, saveAppSettingsToDB, loadAppSettingsFromDB } from './services/dbService';
 import KnowledgeBaseManager from './components/KnowledgeBaseManager';
 import ChatInterface from './components/ChatInterface';
@@ -13,6 +13,8 @@ import SettingsModal, { DEFAULT_SETTINGS } from './components/SettingsModal';
 import { useLiveVoice } from './hooks/useLiveVoice';
 import { playGeminiAudio, speakBrowserText } from './services/audioPlayer';
 import { generateChatExportMarkdown } from './services/exportService';
+import { parseDocumentFile } from './services/documentParser';
+import { Upload, Loader2, CheckCircle2, AlertCircle, FileText } from 'lucide-react';
 
 const INITIAL_FILE_GROUPS: FileGroup[] = [
   { id: 'custom-docs', name: 'Custom Documents 1', files: [] },
@@ -43,6 +45,10 @@ const App: React.FC = () => {
   const [isFetchingSuggestions, setIsFetchingSuggestions] = useState(false);
   const [initialQuerySuggestions, setInitialQuerySuggestions] = useState<string[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [isWindowDragging, setIsWindowDragging] = useState(false);
+  const [isGlobalProcessing, setIsGlobalProcessing] = useState(false);
+  const [globalStatusBanner, setGlobalStatusBanner] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
+  const dragCounterRef = useRef(0);
 
   const activeGroup = fileGroups.find(group => group.id === activeFileGroupId);
   const currentFilesForChat = activeGroup ? activeGroup.files : [];
@@ -324,6 +330,102 @@ const App: React.FC = () => {
     );
   };
 
+  // Global window drag-and-drop file ingestion anywhere across the application
+  useEffect(() => {
+    const handleDragEnter = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragCounterRef.current += 1;
+      if (e.dataTransfer && e.dataTransfer.types && Array.from(e.dataTransfer.types).includes('Files')) {
+        setIsWindowDragging(true);
+      }
+    };
+
+    const handleDragLeave = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragCounterRef.current -= 1;
+      if (dragCounterRef.current <= 0) {
+        dragCounterRef.current = 0;
+        setIsWindowDragging(false);
+      }
+    };
+
+    const handleDragOver = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
+
+    const handleDrop = async (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragCounterRef.current = 0;
+      setIsWindowDragging(false);
+
+      const droppedFiles = e.dataTransfer?.files;
+      if (!droppedFiles || droppedFiles.length === 0) return;
+
+      setIsGlobalProcessing(true);
+      setGlobalStatusBanner({ type: 'info', text: `Extracting ${droppedFiles.length} dropped file(s)...` });
+
+      const newFilesToAdd: LocalFile[] = [];
+      const failedNames: string[] = [];
+
+      for (let i = 0; i < droppedFiles.length; i++) {
+        const file = droppedFiles[i];
+        try {
+          const content = await parseDocumentFile(file);
+          const embedding = await fetchEmbedding(content).catch(() => undefined);
+          let summary: string | undefined = undefined;
+          try {
+            summary = await generateDocumentSummary(content);
+          } catch (e) {}
+
+          newFilesToAdd.push({
+            name: file.name,
+            content,
+            inFocus: true,
+            embedding,
+            summary,
+          });
+        } catch (err: any) {
+          console.warn(`Could not extract "${file.name}":`, err?.message || err);
+          failedNames.push(`${file.name} (${err?.message || 'Unsupported format'})`);
+        }
+      }
+
+      if (newFilesToAdd.length > 0) {
+        handleAddFiles(newFilesToAdd);
+        const groupName = fileGroups.find(g => g.id === activeFileGroupId)?.name || 'Knowledge Base';
+        setGlobalStatusBanner({
+          type: 'success',
+          text: `Added ${newFilesToAdd.length} document(s) to "${groupName}" with embeddings & focus.`,
+        });
+        setTimeout(() => setGlobalStatusBanner(null), 5000);
+      } else if (failedNames.length > 0) {
+        setGlobalStatusBanner({
+          type: 'error',
+          text: `Could not ingest: ${failedNames.join('; ')}`,
+        });
+        setTimeout(() => setGlobalStatusBanner(null), 6000);
+      }
+
+      setIsGlobalProcessing(false);
+    };
+
+    window.addEventListener('dragenter', handleDragEnter);
+    window.addEventListener('dragleave', handleDragLeave);
+    window.addEventListener('dragover', handleDragOver);
+    window.addEventListener('drop', handleDrop);
+
+    return () => {
+      window.removeEventListener('dragenter', handleDragEnter);
+      window.removeEventListener('dragleave', handleDragLeave);
+      window.removeEventListener('dragover', handleDragOver);
+      window.removeEventListener('drop', handleDrop);
+    };
+  }, [activeFileGroupId, fileGroups]);
+
   const handleRemoveFile = (fileNameToRemove: string) => {
     setFileGroups(prevGroups =>
       prevGroups.map(group => {
@@ -575,6 +677,55 @@ const App: React.FC = () => {
     <div 
       className="h-screen max-h-screen antialiased relative overflow-x-hidden bg-[#121212] text-[#E2E2E2]"
     >
+      {/* Global Window Drag & Drop Overlay */}
+      {isWindowDragging && (
+        <div className="fixed inset-0 z-50 bg-[#121212]/90 backdrop-blur-md border-4 border-dashed border-[#79B8FF] flex flex-col items-center justify-center p-6 text-center select-none pointer-events-none animate-in fade-in duration-200">
+          <div className="w-20 h-20 rounded-2xl bg-[#79B8FF]/20 text-[#79B8FF] border border-[#79B8FF]/40 flex items-center justify-center mb-4 shadow-xl shadow-[#79B8FF]/20 animate-bounce">
+            <Upload size={38} />
+          </div>
+          <h2 className="text-2xl font-bold text-white mb-2 tracking-tight">
+            Drop Documents to Ingest
+          </h2>
+          <p className="text-sm text-[#A8ABB4] max-w-md leading-relaxed mb-4">
+            Directly extracts <span className="text-white font-medium">PDF, Word (.docx), CSV, TSV, Markdown, Text, and Code</span> into <span className="text-[#79B8FF] font-semibold">"{activeGroup?.name || 'Knowledge Base'}"</span>.
+          </p>
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 text-xs text-[#E2E2E2] border border-white/10">
+            <span>⚡ Automated vector embeddings & RAG focus attachment</span>
+          </div>
+        </div>
+      )}
+
+      {/* Global Ingestion Status Toast */}
+      {globalStatusBanner && (
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 max-w-md w-full px-4 animate-in slide-in-from-top duration-300">
+          <div className={`p-3.5 rounded-xl border shadow-2xl flex items-center justify-between gap-3 ${
+            globalStatusBanner.type === 'success'
+              ? 'bg-[#1C281F] border-emerald-500/40 text-emerald-300'
+              : globalStatusBanner.type === 'error'
+              ? 'bg-[#2E1A1A] border-red-500/40 text-red-300'
+              : 'bg-[#1A2233] border-[#79B8FF]/40 text-[#79B8FF]'
+          }`}>
+            <div className="flex items-center gap-2.5 min-w-0">
+              {globalStatusBanner.type === 'success' ? (
+                <CheckCircle2 size={18} className="text-emerald-400 shrink-0" />
+              ) : globalStatusBanner.type === 'error' ? (
+                <AlertCircle size={18} className="text-red-400 shrink-0" />
+              ) : (
+                <Loader2 size={18} className="animate-spin text-[#79B8FF] shrink-0" />
+              )}
+              <span className="text-xs font-medium truncate">{globalStatusBanner.text}</span>
+            </div>
+            <button
+              onClick={() => setGlobalStatusBanner(null)}
+              className="text-[#A8ABB4] hover:text-white p-1 rounded-md hover:bg-white/10 transition-colors shrink-0"
+              aria-label="Dismiss notification"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Overlay for mobile */}
       {isSidebarOpen && (
         <div 

@@ -4,11 +4,12 @@
 */
 
 import React, { useRef, useState, useEffect, useMemo } from 'react';
-import { Upload, Trash2, ChevronDown, X, Edit2, Check, AlertCircle, FileText, RefreshCw, SkipForward, Loader2, Folder, Search, FileEdit, BookOpen } from 'lucide-react';
+import { Upload, Trash2, ChevronDown, X, Edit2, Check, AlertCircle, FileText, RefreshCw, SkipForward, Loader2, Folder, Search, FileEdit, BookOpen, Clock } from 'lucide-react';
 import { FileGroup, LocalFile } from '../types';
 import { GoogleDriveImportModal } from './GoogleDriveImportModal';
 import { FileGroupCrudModal } from './FileGroupCrudModal';
 import { generateDocumentSummary, fetchEmbedding } from '../services/geminiService';
+import { parseDocumentFile, ACCEPTED_FILE_TYPES_STRING } from '../services/documentParser';
 
 interface KnowledgeBaseManagerProps {
   files: LocalFile[];
@@ -60,6 +61,7 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
   const [summarizingFile, setSummarizingFile] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [queryEmbedding, setQueryEmbedding] = useState<number[] | null>(null);
+  const [isDragOverUpload, setIsDragOverUpload] = useState(false);
 
   useEffect(() => {
     if (isSemanticSearchEnabled && docSearchQuery.trim()) {
@@ -88,29 +90,8 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
     }
   };
 
-  const readSingleFile = async (file: File): Promise<string> => {
-    if (file.name.toLowerCase().endsWith('.pdf')) {
-      const pdfjsLib = await import('pdfjs-dist');
-      pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
-      
-      const arrayBuffer = await file.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
-      let fullText = '';
-      for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-        const page = await pdf.getPage(pageNum);
-        const textContent = await page.getTextContent();
-        const pageText = textContent.items.map((item: any) => item.str).join(' ');
-        fullText += pageText + '\n';
-      }
-      return fullText;
-    } else {
-      return await file.text();
-    }
-  };
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = e.target.files;
-    if (!selectedFiles || selectedFiles.length === 0) return;
+  const processFileList = async (fileList: File[] | FileList) => {
+    if (!fileList || fileList.length === 0) return;
 
     setIsProcessingUpload(true);
     setError(null);
@@ -119,10 +100,10 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
     const duplicates: DuplicateConflict[] = [];
     const readErrors: string[] = [];
 
-    for (let i = 0; i < selectedFiles.length; i++) {
-      const file = selectedFiles[i];
+    for (let i = 0; i < fileList.length; i++) {
+      const file = fileList[i];
       try {
-        const content = await readSingleFile(file);
+        const content = await parseDocumentFile(file);
         const embedding = await fetchEmbedding(content);
         const isDuplicate = files.some(f => f.name === file.name);
         if (isDuplicate) {
@@ -134,12 +115,12 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
         }
       } catch (err: any) {
         console.warn(`Could not read file "${file.name}":`, err?.message || err);
-        readErrors.push(file.name);
+        readErrors.push(`${file.name} (${err?.message || 'Unsupported format'})`);
       }
     }
 
     if (readErrors.length > 0) {
-      setError(`Could not read ${readErrors.length} file(s): ${readErrors.join(', ')}`);
+      setError(`Could not read ${readErrors.length} file(s): ${readErrors.join('; ')}`);
     }
 
     if (fileInputRef.current) {
@@ -154,10 +135,17 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
         onAddFiles(nonDuplicates);
       }
     } else {
-      // Duplicates detected: stage the non-duplicates and prompt user for duplicates in cue
+      // Duplicates detected: stage the non-duplicates and prompt user for duplicates in queue
       setStagedFiles(nonDuplicates);
       setDuplicateQueue(duplicates);
       setCurrentDuplicateIndex(0);
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = e.target.files;
+    if (selectedFiles && selectedFiles.length > 0) {
+      await processFileList(selectedFiles);
     }
   };
 
@@ -342,7 +330,7 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
       <div className="flex flex-col gap-2 mb-3">
         <input
           type="file"
-          accept=".txt,.md,.pdf"
+          accept={ACCEPTED_FILE_TYPES_STRING}
           multiple
           ref={fileInputRef}
           onChange={handleFileUpload}
@@ -352,17 +340,46 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
         />
         <label
           htmlFor="file-upload"
-          className={`cursor-pointer flex items-center justify-center gap-2 h-10 px-4 border border-dashed border-[rgba(255,255,255,0.3)] bg-[#2C2C2C] hover:bg-white/10 text-[#E2E2E2] rounded-lg transition-colors text-sm w-full ${isProcessingUpload ? 'opacity-60 pointer-events-none' : ''}`}
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!isProcessingUpload) setIsDragOverUpload(true);
+          }}
+          onDragLeave={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setIsDragOverUpload(false);
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setIsDragOverUpload(false);
+            if (isProcessingUpload) return;
+            const droppedFiles = e.dataTransfer.files;
+            if (droppedFiles && droppedFiles.length > 0) {
+              processFileList(droppedFiles);
+            }
+          }}
+          className={`cursor-pointer flex items-center justify-center gap-2 h-11 px-4 border border-dashed rounded-lg transition-all text-sm w-full select-none ${
+            isDragOverUpload
+              ? 'border-[#79B8FF] bg-[#79B8FF]/20 text-[#79B8FF] shadow-md shadow-[#79B8FF]/10 scale-[1.01]'
+              : 'border-[rgba(255,255,255,0.3)] bg-[#2C2C2C] hover:bg-white/10 text-[#E2E2E2]'
+          } ${isProcessingUpload ? 'opacity-60 pointer-events-none' : ''}`}
         >
           {isProcessingUpload ? (
             <>
               <Loader2 size={16} className="animate-spin text-[#79B8FF]" />
-              <span>Processing Files...</span>
+              <span>Processing Files & Embeddings...</span>
+            </>
+          ) : isDragOverUpload ? (
+            <>
+              <Upload size={16} className="animate-bounce text-[#79B8FF]" />
+              <span className="font-semibold text-[#79B8FF]">Drop to Ingest Documents</span>
             </>
           ) : (
             <>
               <Upload size={16} />
-              <span>Upload Files</span>
+              <span>Upload / Drop Files (PDF, DOCX, CSV, MD, Code)</span>
             </>
           )}
         </label>
